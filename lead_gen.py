@@ -3,6 +3,7 @@ from bs4 import BeautifulSoup
 from googlesearch import search
 import re
 import time
+import concurrent.futures
 
 def search_businesses(query, num_results=10):
     """Searches for businesses and returns a list of URLs."""
@@ -55,16 +56,23 @@ def qualify_lead(lead_info):
     lead_info["qualification"] = "High" if score > 50 else "Medium" if score > 0 else "Low"
     return lead_info
 
+def _process_url(url):
+    """Internal helper to process a single URL."""
+    print(f"Processing {url}...")
+    info = extract_info(url)
+    return qualify_lead(info)
+
 def generate_leads(niche, location, num_results=10):
     """Main function to generate leads."""
     query = f"{niche} in {location}"
     urls = search_businesses(query, num_results)
+
+    # Use ThreadPoolExecutor for parallel I/O-bound web scraping
+    # This significantly improves performance when fetching multiple websites
     leads = []
-    for url in urls:
-        print(f"Processing {url}...")
-        info = extract_info(url)
-        leads.append(qualify_lead(info))
-        time.sleep(1) # Be polite
+    with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+        leads = list(executor.map(_process_url, urls))
+
     return leads
 
 if __name__ == "__main__":
