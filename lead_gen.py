@@ -2,7 +2,7 @@ import requests
 from bs4 import BeautifulSoup
 from googlesearch import search
 import re
-import time
+from concurrent.futures import ThreadPoolExecutor
 
 def search_businesses(query, num_results=10):
     """Searches for businesses and returns a list of URLs."""
@@ -55,16 +55,22 @@ def qualify_lead(lead_info):
     lead_info["qualification"] = "High" if score > 50 else "Medium" if score > 0 else "Low"
     return lead_info
 
+def process_url(url):
+    """Helper function to extract and qualify lead info from a URL."""
+    print(f"Processing {url}...")
+    info = extract_info(url)
+    return qualify_lead(info)
+
 def generate_leads(niche, location, num_results=10):
-    """Main function to generate leads."""
+    """Main function to generate leads using parallel processing."""
     query = f"{niche} in {location}"
     urls = search_businesses(query, num_results)
-    leads = []
-    for url in urls:
-        print(f"Processing {url}...")
-        info = extract_info(url)
-        leads.append(qualify_lead(info))
-        time.sleep(1) # Be polite
+
+    # Use ThreadPoolExecutor to process URLs in parallel.
+    # executor.map preserves the order of the search results.
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        leads = list(executor.map(process_url, urls))
+
     return leads
 
 if __name__ == "__main__":
