@@ -1,0 +1,3 @@
+## 2025-05-15 - Parallelizing I/O Bound Lead Generation
+**Learning:** Sequential processing of multiple web requests with artificial `time.sleep` delays created a significant bottleneck (15s for 10 leads). Since these requests are going to different domains, they can be safely parallelized. Using `ThreadPoolExecutor` with `executor.map` effectively reduced execution time by ~29x while preserving the original search result order.
+**Action:** Always prefer `ThreadPoolExecutor` or `asyncio` for independent I/O-bound tasks. Use `executor.map` when input/output ordering is important for the user experience.
