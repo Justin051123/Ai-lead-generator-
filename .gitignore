@@ -3,3 +3,4 @@ __pycache__/
 .streamlit/
 *.pyc
 leads.csv
+__pycache__/
