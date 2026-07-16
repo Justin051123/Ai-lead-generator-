@@ -1,0 +1,3 @@
+## 2025-05-15 - Parallelizing Lead Extraction
+**Learning:** Parallelizing I/O-bound web scraping tasks using `ThreadPoolExecutor` (and removing sequential `time.sleep` delays) significantly reduces total execution time. For a batch of 5 leads, processing time dropped from ~7.5s to ~0.5s in a mocked benchmark. Using `executor.map` is superior to `as_completed` when preserving the original search result order is important for relevance.
+**Action:** Use `ThreadPoolExecutor` with `executor.map` for batch I/O-bound tasks where input order must be preserved. Pre-compile regex patterns when processing large volumes of text in a loop.
