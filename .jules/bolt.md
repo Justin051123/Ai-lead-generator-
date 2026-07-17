@@ -1,0 +1,3 @@
+## 2025-02-17 - Parallelized Web Scraping and Regex Pre-compilation
+**Learning:** Sequential scraping with artificial sleep delays is highly inefficient for I/O-bound tasks. Parallelizing the fetching using `ThreadPoolExecutor` and using `executor.map` retains the relevance order of search results while decreasing processing times dramatically (from ~5.5s to ~0.1s for 5 leads in our mock benchmark). Additionally, pre-compiling the email-extraction regex pattern avoiding recompilation in loops offers cleaner and slightly faster matching in batch runs.
+**Action:** Always prefer `ThreadPoolExecutor` with `executor.map` instead of sequentially iterating when web scraping multiple sources, and pre-compile regular expressions used in loops.
