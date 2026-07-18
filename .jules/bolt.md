@@ -1,0 +1,3 @@
+## 2025-02-15 - Concurrent Web Scraping with ThreadPoolExecutor
+**Learning:** For I/O-bound operations like scraping business websites, processing leads sequentially with artificial sleep delays introduces massive bottlenecks (~1.2s per lead). Parallelizing requests using `ThreadPoolExecutor` and `executor.map` speeds up throughput dramatically while preserving search result relevance and order. Pre-compiling the regex for email extraction further avoids redundant execution costs.
+**Action:** Use `ThreadPoolExecutor` and pre-compiled regex models for highly-scalable, ordered parallel scraping pipelines.
