@@ -2,7 +2,10 @@ import requests
 from bs4 import BeautifulSoup
 from googlesearch import search
 import re
-import time
+from concurrent.futures import ThreadPoolExecutor
+
+# Pre-compile the email regex pattern for optimal reuse across threads and matches
+EMAIL_REGEX = re.compile(r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}')
 
 def search_businesses(query, num_results=10):
     """Searches for businesses and returns a list of URLs."""
@@ -26,9 +29,8 @@ def extract_info(url):
             if soup.title:
                 info["title"] = soup.title.string.strip()
 
-            # Extract email using regex
-            email_pattern = r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}'
-            emails = re.findall(email_pattern, response.text)
+            # Extract email using pre-compiled regex
+            emails = EMAIL_REGEX.findall(response.text)
             if emails:
                 # Basic filtering to avoid common false positives
                 filtered_emails = [e for e in set(emails) if not e.endswith(('.png', '.jpg', '.jpeg', '.gif', '.svg'))]
@@ -55,16 +57,24 @@ def qualify_lead(lead_info):
     lead_info["qualification"] = "High" if score > 50 else "Medium" if score > 0 else "Low"
     return lead_info
 
+def process_single_lead(url):
+    """Processes a single lead: extracts information and qualifies it."""
+    print(f"Processing {url}...")
+    info = extract_info(url)
+    return qualify_lead(info)
+
 def generate_leads(niche, location, num_results=10):
-    """Main function to generate leads."""
+    """Main function to generate leads utilizing ThreadPoolExecutor for concurrent scraping."""
     query = f"{niche} in {location}"
-    urls = search_businesses(query, num_results)
-    leads = []
-    for url in urls:
-        print(f"Processing {url}...")
-        info = extract_info(url)
-        leads.append(qualify_lead(info))
-        time.sleep(1) # Be polite
+    urls = list(search_businesses(query, num_results))
+
+    # We use ThreadPoolExecutor to perform concurrent web requests.
+    # Threading is highly effective for I/O-bound tasks like web scraping.
+    # executor.map automatically preserves the search relevance order.
+    # We also remove the sequential time.sleep(1) delays to maximize speed.
+    with ThreadPoolExecutor(max_workers=min(10, len(urls) or 1)) as executor:
+        leads = list(executor.map(process_single_lead, urls))
+
     return leads
 
 if __name__ == "__main__":
