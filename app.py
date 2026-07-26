@@ -3,12 +3,16 @@ import pandas as pd
 from lead_gen import generate_leads
 import base64
 
+
 def get_table_download_link(df):
     """Generates a link allowing the data in a given panda dataframe to be downloaded"""
     csv = df.to_csv(index=False)
-    b64 = base64.b64encode(csv.encode()).decode()  # some strings <-> bytes conversions here
+    b64 = base64.b64encode(
+        csv.encode()
+    ).decode()  # some strings <-> bytes conversions here
     href = f'<a href="data:file/csv;base64,{b64}" download="leads.csv">Download CSV File</a>'
     return href
+
 
 st.set_page_config(page_title="AI Lead Generator", page_icon="🚀")
 
