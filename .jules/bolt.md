@@ -1,0 +1,3 @@
+## 2026-06-23 - Initial Performance Assessment of AI Lead Generator
+**Learning:** The lead generation pipeline sequentially scrapes each website returned by Google Search (`lead_gen.py`), applying a `time.sleep(1)` polite delay and performing synchronous HTTP requests with a 10s timeout per site. For N search results, this leads to an O(N) sequential processing latency that can easily exceed several seconds or even minutes if multiple websites respond slowly or time out.
+**Action:** Compile regular expressions globally to avoid repeated compilation inside `extract_info`, and parallelize web scraping using `ThreadPoolExecutor`. Keep search result order intact.
