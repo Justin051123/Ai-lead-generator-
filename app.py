@@ -1,7 +1,10 @@
-import streamlit as st
-import pandas as pd
-from lead_gen import generate_leads
 import base64
+
+import pandas as pd
+import streamlit as st
+
+from lead_gen import generate_leads
+
 
 def get_table_download_link(df):
     """Generates a link allowing the data in a given panda dataframe to be downloaded"""
