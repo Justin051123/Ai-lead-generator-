@@ -1,0 +1,3 @@
+## 2025-02-18 - ThreadPoolExecutor Parallelization for Web Scraping
+**Learning:** Parallelizing network-bound I/O tasks like scraping can drastically reduce total execution duration. Using `concurrent.futures.ThreadPoolExecutor` along with `executor.map` is highly effective because it preserves the original search result order, which is critical for search relevance and user experience.
+**Action:** Always prefer `ThreadPoolExecutor` and `executor.map` for I/O-bound pipelines where processing elements in search relevance/original order is desirable, and pre-compile regular expressions (such as `EMAIL_REGEX`) to optimize batch processing.
