@@ -2,7 +2,13 @@ import requests
 from bs4 import BeautifulSoup
 from googlesearch import search
 import re
-import time
+from concurrent.futures import ThreadPoolExecutor
+
+# Pre-compiled email pattern to optimize batch extraction efficiency
+EMAIL_REGEX = re.compile(r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}')
+
+# Blacklist of common extensions that could be false positives
+EMAIL_BLACKLIST = ('.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp', '.pdf')
 
 def search_businesses(query, num_results=10):
     """Searches for businesses and returns a list of URLs."""
@@ -18,20 +24,20 @@ def extract_info(url):
     """Extracts email and title from a website URL."""
     info = {"url": url, "email": "N/A", "title": "N/A"}
     try:
+        # 10 seconds timeout protects against hung requests during parallel fetching
         response = requests.get(url, timeout=10, headers={'User-Agent': 'Mozilla/5.0'})
         if response.status_code == 200:
             soup = BeautifulSoup(response.text, 'html.parser')
 
             # Extract title
-            if soup.title:
+            if soup.title and soup.title.string:
                 info["title"] = soup.title.string.strip()
 
-            # Extract email using regex
-            email_pattern = r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}'
-            emails = re.findall(email_pattern, response.text)
+            # Extract email using pre-compiled regex
+            emails = EMAIL_REGEX.findall(response.text)
             if emails:
                 # Basic filtering to avoid common false positives
-                filtered_emails = [e for e in set(emails) if not e.endswith(('.png', '.jpg', '.jpeg', '.gif', '.svg'))]
+                filtered_emails = [e for e in set(emails) if not e.lower().endswith(EMAIL_BLACKLIST)]
                 if filtered_emails:
                     info["email"] = filtered_emails[0]
 
@@ -55,16 +61,24 @@ def qualify_lead(lead_info):
     lead_info["qualification"] = "High" if score > 50 else "Medium" if score > 0 else "Low"
     return lead_info
 
+def process_single_lead(url):
+    """Helper function to process a single lead URL (scrape and qualify)."""
+    print(f"Processing {url}...")
+    info = extract_info(url)
+    return qualify_lead(info)
+
 def generate_leads(niche, location, num_results=10):
-    """Main function to generate leads."""
+    """Main function to generate leads utilizing ThreadPoolExecutor for concurrent scraping."""
     query = f"{niche} in {location}"
     urls = search_businesses(query, num_results)
+
+    # Run the web scraping pipeline in parallel to avoid blocking I/O sequential delay.
+    # We use ThreadPoolExecutor.map to preserve the original relevance order of Google Search results.
     leads = []
-    for url in urls:
-        print(f"Processing {url}...")
-        info = extract_info(url)
-        leads.append(qualify_lead(info))
-        time.sleep(1) # Be polite
+    if urls:
+        with ThreadPoolExecutor(max_workers=min(10, len(urls))) as executor:
+            leads = list(executor.map(process_single_lead, urls))
+
     return leads
 
 if __name__ == "__main__":
