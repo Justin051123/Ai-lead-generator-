@@ -2,7 +2,10 @@ import requests
 from bs4 import BeautifulSoup
 from googlesearch import search
 import re
-import time
+from concurrent.futures import ThreadPoolExecutor
+
+# Precompile the email regex to optimize extraction performance
+EMAIL_REGEX = re.compile(r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}')
 
 def search_businesses(query, num_results=10):
     """Searches for businesses and returns a list of URLs."""
@@ -22,13 +25,12 @@ def extract_info(url):
         if response.status_code == 200:
             soup = BeautifulSoup(response.text, 'html.parser')
 
-            # Extract title
-            if soup.title:
+            # Extract title safely
+            if soup.title and soup.title.string:
                 info["title"] = soup.title.string.strip()
 
-            # Extract email using regex
-            email_pattern = r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}'
-            emails = re.findall(email_pattern, response.text)
+            # Extract email using precompiled regex
+            emails = EMAIL_REGEX.findall(response.text)
             if emails:
                 # Basic filtering to avoid common false positives
                 filtered_emails = [e for e in set(emails) if not e.endswith(('.png', '.jpg', '.jpeg', '.gif', '.svg'))]
@@ -55,16 +57,27 @@ def qualify_lead(lead_info):
     lead_info["qualification"] = "High" if score > 50 else "Medium" if score > 0 else "Low"
     return lead_info
 
+def process_single_lead(url):
+    """Helper function to process a single lead url."""
+    print(f"Processing {url}...")
+    info = extract_info(url)
+    return qualify_lead(info)
+
 def generate_leads(niche, location, num_results=10):
-    """Main function to generate leads."""
+    """Main function to generate leads concurrently."""
     query = f"{niche} in {location}"
     urls = search_businesses(query, num_results)
-    leads = []
-    for url in urls:
-        print(f"Processing {url}...")
-        info = extract_info(url)
-        leads.append(qualify_lead(info))
-        time.sleep(1) # Be polite
+
+    # Process leads in parallel using ThreadPoolExecutor
+    # Using executor.map preserves the search results' original ranking order.
+    # Parallel processing avoids sequential I/O delays and removes the artificial sleep.
+    if not urls:
+        return []
+
+    max_workers = min(10, len(urls))
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        leads = list(executor.map(process_single_lead, urls))
+
     return leads
 
 if __name__ == "__main__":
