@@ -1,8 +1,11 @@
+from concurrent.futures import ThreadPoolExecutor
+import re
 import requests
 from bs4 import BeautifulSoup
 from googlesearch import search
-import re
-import time
+
+# Pre-compiled regex pattern for performance optimization
+EMAIL_PATTERN = re.compile(r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}')
 
 def search_businesses(query, num_results=10):
     """Searches for businesses and returns a list of URLs."""
@@ -26,9 +29,8 @@ def extract_info(url):
             if soup.title:
                 info["title"] = soup.title.string.strip()
 
-            # Extract email using regex
-            email_pattern = r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}'
-            emails = re.findall(email_pattern, response.text)
+            # Extract email using pre-compiled regex pattern
+            emails = EMAIL_PATTERN.findall(response.text)
             if emails:
                 # Basic filtering to avoid common false positives
                 filtered_emails = [e for e in set(emails) if not e.endswith(('.png', '.jpg', '.jpeg', '.gif', '.svg'))]
@@ -55,16 +57,23 @@ def qualify_lead(lead_info):
     lead_info["qualification"] = "High" if score > 50 else "Medium" if score > 0 else "Low"
     return lead_info
 
-def generate_leads(niche, location, num_results=10):
-    """Main function to generate leads."""
+def process_single_lead(url):
+    """Helper to process a single URL for parallel execution."""
+    print(f"Processing {url}...")
+    info = extract_info(url)
+    return qualify_lead(info)
+
+def generate_leads(niche, location, num_results=10, max_workers=10):
+    """Main function to generate leads concurrently."""
     query = f"{niche} in {location}"
     urls = search_businesses(query, num_results)
-    leads = []
-    for url in urls:
-        print(f"Processing {url}...")
-        info = extract_info(url)
-        leads.append(qualify_lead(info))
-        time.sleep(1) # Be polite
+    if not urls:
+        return []
+
+    # Parallelize web scraping and lead qualification while preserving result order
+    with ThreadPoolExecutor(max_workers=min(max_workers, len(urls))) as executor:
+        leads = list(executor.map(process_single_lead, urls))
+
     return leads
 
 if __name__ == "__main__":
