@@ -2,7 +2,10 @@ import requests
 from bs4 import BeautifulSoup
 from googlesearch import search
 import re
-import time
+import concurrent.futures
+
+# Performance Optimization: Pre-compile email regex pattern at module level to avoid compiling it repeatedly on every page extraction
+EMAIL_PATTERN = re.compile(r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}')
 
 def search_businesses(query, num_results=10):
     """Searches for businesses and returns a list of URLs."""
@@ -23,12 +26,11 @@ def extract_info(url):
             soup = BeautifulSoup(response.text, 'html.parser')
 
             # Extract title
-            if soup.title:
+            if soup.title and soup.title.string:
                 info["title"] = soup.title.string.strip()
 
-            # Extract email using regex
-            email_pattern = r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}'
-            emails = re.findall(email_pattern, response.text)
+            # Extract email using pre-compiled regex pattern
+            emails = EMAIL_PATTERN.findall(response.text)
             if emails:
                 # Basic filtering to avoid common false positives
                 filtered_emails = [e for e in set(emails) if not e.endswith(('.png', '.jpg', '.jpeg', '.gif', '.svg'))]
@@ -48,23 +50,33 @@ def qualify_lead(lead_info):
     score = 0
     if lead_info["email"] != "N/A":
         score += 50
-    if len(lead_info["title"]) > 10:
+    if len(lead_info.get("title", "")) > 10:
         score += 20
 
     lead_info["ai_score"] = score
     lead_info["qualification"] = "High" if score > 50 else "Medium" if score > 0 else "Low"
     return lead_info
 
-def generate_leads(niche, location, num_results=10):
-    """Main function to generate leads."""
+def process_single_lead(url):
+    """Processes and qualifies a single lead given its URL."""
+    print(f"Processing {url}...")
+    info = extract_info(url)
+    return qualify_lead(info)
+
+def generate_leads(niche, location, num_results=10, max_workers=5):
+    """Main function to generate leads concurrently.
+
+    Performance Optimization:
+    Uses ThreadPoolExecutor to scrape and qualify multiple website leads concurrently,
+    dramatically reducing overall lead generation latency compared to sequential processing.
+    """
     query = f"{niche} in {location}"
     urls = search_businesses(query, num_results)
-    leads = []
-    for url in urls:
-        print(f"Processing {url}...")
-        info = extract_info(url)
-        leads.append(qualify_lead(info))
-        time.sleep(1) # Be polite
+    if not urls:
+        return []
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+        leads = list(executor.map(process_single_lead, urls))
     return leads
 
 if __name__ == "__main__":
