@@ -4,6 +4,12 @@ from googlesearch import search
 import re
 import time
 
+# Pre-compile regex pattern for email extraction to improve performance
+EMAIL_PATTERN = re.compile(r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}')
+
+# Default HTTP headers used across requests
+DEFAULT_HEADERS = {'User-Agent': 'Mozilla/5.0'}
+
 def search_businesses(query, num_results=10):
     """Searches for businesses and returns a list of URLs."""
     urls = []
@@ -14,21 +20,29 @@ def search_businesses(query, num_results=10):
         print(f"Error during search: {e}")
     return urls
 
-def extract_info(url):
-    """Extracts email and title from a website URL."""
+def extract_info(url, session=None):
+    """
+    Extracts email and title from a website URL.
+
+    Optimization:
+    Accepts an optional `session` (requests.Session) instance to reuse HTTP/TCP
+    connections across requests. Connection reuse avoids repeated TCP handshakes
+    and TLS renegotiation overhead, significantly improving scraping throughput.
+    """
     info = {"url": url, "email": "N/A", "title": "N/A"}
+    requester = session if session is not None else requests
+
     try:
-        response = requests.get(url, timeout=10, headers={'User-Agent': 'Mozilla/5.0'})
+        response = requester.get(url, timeout=10, headers=DEFAULT_HEADERS)
         if response.status_code == 200:
             soup = BeautifulSoup(response.text, 'html.parser')
 
             # Extract title
-            if soup.title:
+            if soup.title and soup.title.string:
                 info["title"] = soup.title.string.strip()
 
-            # Extract email using regex
-            email_pattern = r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}'
-            emails = re.findall(email_pattern, response.text)
+            # Extract email using pre-compiled regex
+            emails = EMAIL_PATTERN.findall(response.text)
             if emails:
                 # Basic filtering to avoid common false positives
                 filtered_emails = [e for e in set(emails) if not e.endswith(('.png', '.jpg', '.jpeg', '.gif', '.svg'))]
@@ -56,15 +70,25 @@ def qualify_lead(lead_info):
     return lead_info
 
 def generate_leads(niche, location, num_results=10):
-    """Main function to generate leads."""
+    """
+    Main function to generate leads.
+
+    Optimization:
+    Uses a single `requests.Session` context manager for processing all scraped leads
+    to enable HTTP connection pooling and keep-alive reuse.
+    """
     query = f"{niche} in {location}"
     urls = search_businesses(query, num_results)
     leads = []
-    for url in urls:
-        print(f"Processing {url}...")
-        info = extract_info(url)
-        leads.append(qualify_lead(info))
-        time.sleep(1) # Be polite
+
+    # Reuse a single HTTP session across all requests for connection pooling
+    with requests.Session() as session:
+        for url in urls:
+            print(f"Processing {url}...")
+            info = extract_info(url, session=session)
+            leads.append(qualify_lead(info))
+            time.sleep(1) # Be polite
+
     return leads
 
 if __name__ == "__main__":
