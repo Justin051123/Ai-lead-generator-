@@ -1,8 +1,12 @@
-import requests
+import concurrent.futures
+import re
 from bs4 import BeautifulSoup
 from googlesearch import search
-import re
-import time
+import requests
+
+# Pre-compile email extraction regex pattern for efficiency during batch scraping
+EMAIL_PATTERN = re.compile(r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}')
+
 
 def search_businesses(query, num_results=10):
     """Searches for businesses and returns a list of URLs."""
@@ -14,30 +18,38 @@ def search_businesses(query, num_results=10):
         print(f"Error during search: {e}")
     return urls
 
-def extract_info(url):
-    """Extracts email and title from a website URL."""
+
+def extract_info(url, session=None):
+    """Extracts email and title from a website URL.
+
+    Optionally accepts a requests.Session to reuse TCP connections across requests.
+    """
     info = {"url": url, "email": "N/A", "title": "N/A"}
     try:
-        response = requests.get(url, timeout=10, headers={'User-Agent': 'Mozilla/5.0'})
+        requester = session if session is not None else requests
+        response = requester.get(url, timeout=10, headers={'User-Agent': 'Mozilla/5.0'})
         if response.status_code == 200:
             soup = BeautifulSoup(response.text, 'html.parser')
 
             # Extract title
-            if soup.title:
+            if soup.title and soup.title.string:
                 info["title"] = soup.title.string.strip()
 
-            # Extract email using regex
-            email_pattern = r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}'
-            emails = re.findall(email_pattern, response.text)
+            # Extract email using pre-compiled regex pattern
+            emails = EMAIL_PATTERN.findall(response.text)
             if emails:
                 # Basic filtering to avoid common false positives
-                filtered_emails = [e for e in set(emails) if not e.endswith(('.png', '.jpg', '.jpeg', '.gif', '.svg'))]
+                filtered_emails = [
+                    e for e in set(emails)
+                    if not e.endswith(('.png', '.jpg', '.jpeg', '.gif', '.svg'))
+                ]
                 if filtered_emails:
                     info["email"] = filtered_emails[0]
 
     except Exception as e:
         print(f"Error extracting info from {url}: {e}")
     return info
+
 
 def qualify_lead(lead_info):
     """
@@ -55,17 +67,32 @@ def qualify_lead(lead_info):
     lead_info["qualification"] = "High" if score > 50 else "Medium" if score > 0 else "Low"
     return lead_info
 
-def generate_leads(niche, location, num_results=10):
-    """Main function to generate leads."""
+
+def process_single_lead(url, session=None):
+    """Processes a single lead URL by extracting information and scoring it."""
+    print(f"Processing {url}...")
+    info = extract_info(url, session=session)
+    return qualify_lead(info)
+
+
+def generate_leads(niche, location, num_results=10, max_workers=10):
+    """Main function to generate leads concurrently using a ThreadPoolExecutor."""
     query = f"{niche} in {location}"
     urls = search_businesses(query, num_results)
-    leads = []
-    for url in urls:
-        print(f"Processing {url}...")
-        info = extract_info(url)
-        leads.append(qualify_lead(info))
-        time.sleep(1) # Be polite
+    if not urls:
+        return []
+
+    # Parallelize web scraping and lead qualification using ThreadPoolExecutor
+    # executor.map maintains original URL order while executing requests in parallel
+    session = requests.Session()
+    try:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+            leads = list(executor.map(lambda u: process_single_lead(u, session), urls))
+    finally:
+        session.close()
+
     return leads
+
 
 if __name__ == "__main__":
     # Test
