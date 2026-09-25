@@ -1,0 +1,3 @@
+## 2026-06-23 - Parallel Lead Processing with ThreadPoolExecutor & Thread-Local Sessions
+**Learning:** In `lead_gen.py`, web scraping sequential iteration with explicit `time.sleep` delays was the dominant bottleneck. Parallelizing scraping using `concurrent.futures.ThreadPoolExecutor` along with `threading.local()` for thread-safe `requests.Session` connection pooling drastically reduces processing time while preserving lead search ordering via `executor.map`.
+**Action:** When scraping multiple web endpoints concurrently, use `ThreadPoolExecutor` with `executor.map` and thread-local HTTP session instances to maintain result order and leverage HTTP connection reuse.
