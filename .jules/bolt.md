@@ -1,0 +1,4 @@
+## 2026-06-23 - Concurrent Lead Generation & HTTP Connection Reuse
+
+**Learning:** Processing scraped website leads sequentially with sequential HTTP GET requests and artificial delays (`time.sleep(1)`) creates a massive I/O bottleneck (~12s for 10 leads with 200ms simulated latency). Using `concurrent.futures.ThreadPoolExecutor` with `executor.map` parallelizes I/O requests while strictly maintaining search result relevance order. Additionally, thread-local HTTP connection pooling with `requests.Session` and module-level pre-compiled regex (`EMAIL_PATTERN`) eliminate redundant overhead.
+**Action:** Always parallelize I/O-bound web scraping pipelines in Python using `ThreadPoolExecutor` and `executor.map` when preserving result order is required. Use thread-local sessions for safe connection reuse across worker threads.
