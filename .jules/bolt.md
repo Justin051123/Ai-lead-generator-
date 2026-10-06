@@ -1,0 +1,3 @@
+## 2026-06-23 - Parallel Lead Processing with ThreadPoolExecutor and Session Reuse
+**Learning:** Sequential web scraping with `time.sleep` in lead generation introduces significant I/O latency (~1s per URL + response latency). Parallelizing requests using `concurrent.futures.ThreadPoolExecutor` combined with `executor.map` maintains search result order while eliminating sequential wait times. Additionally, thread-local `requests.Session` instances enable connection pooling and header reuse across worker threads without race conditions.
+**Action:** Always use `ThreadPoolExecutor` and thread-local `requests.Session` for batch network operations, and pre-compile regular expressions used across repeated HTML parsing tasks.
