@@ -1,0 +1,3 @@
+## 2026-06-23 - Concurrent Lead Scraping & Session Reuse
+**Learning:** Sequential web scraping in `lead_gen.py` with `time.sleep(1)` introduced an artificial delay of N seconds for N leads plus sequential HTTP roundtrip latencies (~11s for 10 leads). Using `concurrent.futures.ThreadPoolExecutor` with `executor.map` parallelizes I/O network requests while strictly preserving search result ranking/order. Using thread-local `requests.Session` instances enables HTTP connection pooling without thread safety issues.
+**Action:** When parallelizing I/O tasks where input order matters, use `ThreadPoolExecutor.map` and thread-local HTTP sessions to maximize concurrency without sacrificing result ordering or connection reuse.
