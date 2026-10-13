@@ -1,0 +1,3 @@
+## 2026-06-23 - Concurrent Lead Generation & Result Ordering
+**Learning:** In `lead_gen.py`, lead processing was previously done sequentially with blocking `time.sleep(1)` delays and per-request regex compilation. Switching to `concurrent.futures.ThreadPoolExecutor` with `executor.map` parallelizes I/O-bound web scraping while strictly preserving original search result ranking. Thread-local `requests.Session` enables connection pooling across worker threads.
+**Action:** Use `executor.map` and thread-local sessions for I/O-bound scraping tasks where input ordering (search relevance) must be preserved.
