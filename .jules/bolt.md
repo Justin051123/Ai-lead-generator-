@@ -1,0 +1,3 @@
+## 2026-06-23 - Parallelizing Web Scraping in Search Lead Pipeline
+**Learning:** Sequential scraping of search result URLs introduces linear time complexity per lead, aggravated by network I/O latency and artificial sleep delays. Using `concurrent.futures.ThreadPoolExecutor` with `executor.map` parallelizes network I/O requests while maintaining the original search result ordering needed for lead relevance.
+**Action:** Always prefer `executor.map` over `as_completed` when parallelizing I/O-bound tasks where input order matters (like search relevance), and pre-compile regex patterns reused across threads.
