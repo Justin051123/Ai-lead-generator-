@@ -1,0 +1,3 @@
+## 2025-05-10 - Parallelize I/O-Bound Web Scraping & Pre-compile Regex
+**Learning:** Sequential HTTP requests with artificial delays (`time.sleep(1)`) block lead generation linearly (N * request_time + N seconds). Using `ThreadPoolExecutor` with `executor.map` parallelizes I/O-bound requests while preserving search result order without introducing third-party async dependencies. Pre-compiling email extraction regex at module level avoids repeated compilation overhead.
+**Action:** Use `ThreadPoolExecutor` and `executor.map` for I/O bound batch URL processing when order matters, and pre-compile regex patterns used across batch extractions.
