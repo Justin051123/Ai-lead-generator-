@@ -1,0 +1,3 @@
+## 2026-06-23 - Parallel Web Scraping & Regex Pre-compilation
+**Learning:** Web scraping in `generate_leads` was strictly sequential with `time.sleep(1)` per URL, creating a significant I/O bottleneck (~5.5s for 5 leads). Parallelizing HTTP requests with `concurrent.futures.ThreadPoolExecutor` and `executor.map` maintains search result ordering while reducing total execution time dramatically (~0.1s for 5 leads with simulated network latency).
+**Action:** When scraping multiple URLs or performing I/O bound tasks where order matters, use `ThreadPoolExecutor` with `executor.map` to execute requests concurrently without losing search relevance ranking.
