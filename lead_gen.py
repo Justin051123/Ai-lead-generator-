@@ -1,8 +1,12 @@
+import concurrent.futures
+import re
 import requests
 from bs4 import BeautifulSoup
 from googlesearch import search
-import re
-import time
+
+# Pre-compile email extraction regex pattern at module level to avoid redundant compilation during batch lead extraction.
+EMAIL_PATTERN = re.compile(r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}')
+
 
 def search_businesses(query, num_results=10):
     """Searches for businesses and returns a list of URLs."""
@@ -13,6 +17,7 @@ def search_businesses(query, num_results=10):
     except Exception as e:
         print(f"Error during search: {e}")
     return urls
+
 
 def extract_info(url):
     """Extracts email and title from a website URL."""
@@ -26,9 +31,8 @@ def extract_info(url):
             if soup.title:
                 info["title"] = soup.title.string.strip()
 
-            # Extract email using regex
-            email_pattern = r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}'
-            emails = re.findall(email_pattern, response.text)
+            # Extract email using pre-compiled regex pattern
+            emails = EMAIL_PATTERN.findall(response.text)
             if emails:
                 # Basic filtering to avoid common false positives
                 filtered_emails = [e for e in set(emails) if not e.endswith(('.png', '.jpg', '.jpeg', '.gif', '.svg'))]
@@ -38,6 +42,7 @@ def extract_info(url):
     except Exception as e:
         print(f"Error extracting info from {url}: {e}")
     return info
+
 
 def qualify_lead(lead_info):
     """
@@ -55,17 +60,32 @@ def qualify_lead(lead_info):
     lead_info["qualification"] = "High" if score > 50 else "Medium" if score > 0 else "Low"
     return lead_info
 
-def generate_leads(niche, location, num_results=10):
-    """Main function to generate leads."""
+
+def process_single_lead(url):
+    """Fetches info and qualifies a single lead URL."""
+    print(f"Processing {url}...")
+    info = extract_info(url)
+    return qualify_lead(info)
+
+
+def generate_leads(niche, location, num_results=10, max_workers=10):
+    """Main function to generate leads.
+
+    BOLT OPTIMIZATION:
+    Parallelized I/O-bound website requests using ThreadPoolExecutor and executor.map.
+    This eliminates sequential sleep delays and parallelizes scraping while maintaining search result ranking.
+    """
     query = f"{niche} in {location}"
     urls = search_businesses(query, num_results)
-    leads = []
-    for url in urls:
-        print(f"Processing {url}...")
-        info = extract_info(url)
-        leads.append(qualify_lead(info))
-        time.sleep(1) # Be polite
+    if not urls:
+        return []
+
+    workers = min(max_workers, len(urls)) if len(urls) > 0 else 1
+    with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as executor:
+        leads = list(executor.map(process_single_lead, urls))
+
     return leads
+
 
 if __name__ == "__main__":
     # Test
