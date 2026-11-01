@@ -1,0 +1,3 @@
+## 2025-05-18 - Concurrent Scraping Bottleneck in Lead Generation Pipeline
+**Learning:** Sequential scraping with synchronous network requests (`requests.get`) and artificial delays (`time.sleep(1)`) creates a major I/O-bound bottleneck (e.g. 5 leads taking ~5.5s). In search-based lead generation, maintaining result rank/ordering is critical. Using `concurrent.futures.ThreadPoolExecutor` paired with `executor.map` parallelizes I/O across threads while strictly preserving the ranked order of search results without needing complex sorting or locking.
+**Action:** When handling I/O-bound scraping tasks where input ordering reflects search relevance, prefer `ThreadPoolExecutor` with `executor.map` over sequential loops or `as_completed`.
