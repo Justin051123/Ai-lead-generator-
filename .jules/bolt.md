@@ -1,0 +1,3 @@
+## 2025-05-18 - Parallelizing Web Scraping in Lead Generation Pipeline
+**Learning:** Sequential HTTP requests with artificial `time.sleep` delays severely throttle lead generation pipelines (taking ~5.5s for 5 leads). Since web scraping is heavily I/O-bound, using Python's `concurrent.futures.ThreadPoolExecutor` along with `executor.map` maintains the exact search ranking order while running requests concurrently without adding heavyweight dependencies.
+**Action:** When scraping or enriching lists of URLs where ranking order matters, use `ThreadPoolExecutor` with `executor.map` and pre-compile regular expressions at the module scope.
