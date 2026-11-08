@@ -1,0 +1,3 @@
+## 2026-09-05 - Parallel Web Scraping & Lead Processing
+**Learning:** Sequential scraping of search results with an artificial delay (`time.sleep(1)`) creates an O(N) blocking I/O bottleneck in lead generation. By parallelizing web scraping using `ThreadPoolExecutor` and `executor.map`, lead extraction runs concurrently while preserving the search result relevance ordering. Additionally, compiling regex patterns at module level avoids repeated compilation overhead.
+**Action:** When handling multiple independent network requests where the input ordering matters (such as search rankings), use `ThreadPoolExecutor` with `executor.map` rather than sequential loops with blocking sleeps.
